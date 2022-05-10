@@ -10,6 +10,14 @@ serverless create --template aws-nodejs-typescript --path certificate
 yarn add serverless-offline -D
 ```
 
+## Observações
+
+yarn add serverless-webpack
+
+A criação do projeto foi utilizando esbuild, mas não descobri o
+porque dele não rodar offline. Dessa forma, copiei o arquivo
+webpack.config.js de outro projeto e adicionei o plugin serverless-webpack
+
 ## Configurando serverless.yml
 
 ```jsx
@@ -111,6 +119,77 @@ obs: a versão que funcionou foi
 yarn add dayjs
 
 yarn add copy-webpack-plugin -D
+```
+
+## Configuração webpack.config.js
+
+```jsx
+const path = require("path");
+const slsw = require("serverless-webpack");
+const nodeExternals = require("webpack-node-externals");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
+
+module.exports = {
+  context: __dirname,
+  mode: slsw.lib.webpack.isLocal ? "development" : "production",
+  entry: slsw.lib.entries,
+  devtool: slsw.lib.webpack.isLocal
+    ? "eval-cheap-module-source-map"
+    : "source-map",
+  resolve: {
+    extensions: [".mjs", ".json", ".ts", ".js", ".html", ".png"],
+    symlinks: false,
+    cacheWithContext: false,
+  },
+  output: {
+    libraryTarget: "commonjs",
+    path: path.join(__dirname, ".webpack"),
+    filename: "[name].js",
+  },
+  optimization: {
+    concatenateModules: false,
+  },
+  target: "node",
+  externals: [nodeExternals()],
+  module: {
+    rules: [
+      // all files with a `.ts` or `.tsx` extension will be handled by `ts-loader`
+      {
+        test: /\.(tsx?)$/,
+        loader: "ts-loader",
+        exclude: [
+          [
+            path.resolve(__dirname, "node_modules"),
+            path.resolve(__dirname, ".serverless"),
+            path.resolve(__dirname, ".webpack"),
+          ],
+        ],
+        options: {
+          transpileOnly: true,
+          experimentalWatchApi: true,
+        },
+      },
+      {
+        test: /\.(jpg|png)$/,
+        use: [
+          {
+            loader: "file-loader",
+          },
+        ],
+      },
+    ],
+  },
+  plugins: [
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: "./src/templates",
+          to: path.join(__dirname, ".webpack/service/src/templates"),
+        },
+      ],
+    }),
+  ],
+};
 ```
 
 ## Serverless.yml completo
